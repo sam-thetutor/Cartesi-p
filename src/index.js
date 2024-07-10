@@ -6,71 +6,76 @@ const rollup_server = process.env.ROLLUP_HTTP_SERVER_URL;
 console.log("HTTP rollup_server url is " + rollup_server);
 
 function hex2str(hex) {
-  return ethers.toUtf8String(hex); 
+  return ethers.toUtf8String(hex)
 }
 
 function str2hex(payload) {
-  return ethers.hexlify(ethers.toUtf8Bytes(payload));
+  return ethers.hexlify(ethers.toUtf8Bytes(payload))
 }
 
-function isNumeric(num){
+function isNumeric(num) {
   return !isNaN(num)
 }
 
-let sentenceList = []
+let users = []
+let toUpperTotal = 0
 
 async function handle_advance(data) {
   console.log("Received advance request data " + JSON.stringify(data));
+
   const metadata = data["metadata"]
   const sender = metadata["msg_sender"]
-  const payload = data["payload"];
+  const payload = data["payload"]
 
   let sentence = hex2str(payload)
-
   if (isNumeric(sentence)) {
-    const reportResponse = await fetch(rollup_server + "/report", {
+    const report_req = await fetch(rollup_server + "/report", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ payload: str2hex("You can't transform to uppercase a number") }),
+      body: JSON.stringify({ payload: str2hex("sentence is not on hex format") }),
     });
-    return "reject";
+
+    return "reject"
   }
 
+  users.push(sender)
+  toUpperTotal += 1
+  
   sentence = sentence.toUpperCase()
-  sentenceList.push({ sender, sentence })
-
-  const noticeResponse = await fetch(rollup_server + "/notice", {
+  const notice_req = await fetch(rollup_server + "/notice", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ payload: str2hex(sentence) }),
   });
+
   return "accept";
 }
 
 async function handle_inspect(data) {
   console.log("Received inspect request data " + JSON.stringify(data));
 
-  const payload = data["payload"];
+  const payload = data["payload"]
   const route = hex2str(payload)
 
-  let resPayload
+  let responseObject
   if (route === "list") {
-    const bodyData = { sentenceList }
-    resPayload = JSON.stringify(bodyData)
+    responseObject = JSON.stringify({users})
+  } else if (route === "total") {
+    responseObject = JSON.stringify({toUpperTotal})
   } else {
-    resPayload = "Route not found"
+    responseObject = "route not implemented"
   }
 
-  const reportResponse = await fetch(rollup_server + "/report", {
+  const report_req = await fetch(rollup_server + "/report", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ payload: str2hex(resPayload) }),
+    body: JSON.stringify({ payload: str2hex(responseObject) }),
   });
 
   return "accept";
